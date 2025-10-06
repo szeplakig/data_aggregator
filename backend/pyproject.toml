@@ -1,0 +1,38 @@
+[project]
+name = "data-aggregator-backend"
+version = "0.1.0"
+description = "Generic data aggregator backend with FastAPI"
+authors = [
+    {name = "Gergely Széplaki", email = "szeplakig91@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "sqlalchemy>=2.0.36",
+    "psycopg2-binary>=2.9.10",
+    "alembic>=1.13.3",
+    "pydantic>=2.9.2",
+    "pydantic-settings>=2.6.0",
+    "httpx>=0.27.2",
+    "apscheduler>=3.10.4",
+    "python-dateutil>=2.9.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.3",
+    "pytest-asyncio>=0.24.0",
+    "black>=24.10.0",
+    "ruff>=0.7.0"
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+packages = [
+    { include = "app" }
+]
