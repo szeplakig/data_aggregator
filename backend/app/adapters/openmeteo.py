@@ -84,13 +84,10 @@ class OpenMeteoAdapter(DataSourceAdapter[OpenMeteoConfig]):
         metadata: dict[str, Any] = {}
         if self.config.location is not None:
             metadata["location"] = self.config.location
-        loc_coords = getattr(self.config, "location_coords", None)
-        if loc_coords is not None:
-            metadata["location_coords"] = loc_coords
-        # The config may include a `fields` map describing per-field metadata
-        fields_map = getattr(self.config, "fields", None)
-        if fields_map is not None and isinstance(fields_map, dict):
-            metadata["fields"] = fields_map
+        if self.config.location_coords is not None:
+            metadata["location_coords"] = self.config.location_coords
+        if self.config.fields is not None:
+            metadata["fields"] = self.config.fields
 
         return metadata if metadata else None
 

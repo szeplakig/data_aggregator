@@ -51,8 +51,6 @@ class DataFetchScheduler:
                 repo = DataRepository(db)
 
                 # Let adapter provide metadata and unique_key handling
-                # Ask adapter for metadata. Adapters are responsible for
-                # providing any source-specific metadata.
                 metadata = adapter.get_metadata()
 
                 # Get or create source
