@@ -64,7 +64,8 @@ app = FastAPI(
     ),
     version="1.0.0",
     lifespan=lifespan,
-    docs_url="/docs",
+    docs_url=f"{settings.api_prefix}/docs",
+    openapi_url=f"{settings.api_prefix}/openapi.json",
 )
 
 # Configure CORS
@@ -85,7 +86,7 @@ def root():
     """Root endpoint."""
     return {
         "message": "Data Aggregator API",
-        "docs": "/docs",
+        "docs": f"{settings.api_prefix}/docs",
         "api": settings.api_prefix,
     }
 
