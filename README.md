@@ -60,7 +60,7 @@
 - **Flow:** `Ingestion Service(s) -> Central DB -> Backend API Service -> Frontend`.
 - **Analysis:**
   - **Pros:** **Excellent** scalability & extensibility (scale/add services independently).
-  - **Cons:** **High** ops complexity (deployment, monitoring, service discovery). Slower initial dev.
+  - **Cons:** **Higher** ops complexity (deployment, monitoring, service discovery). Slower initial dev.
 
 #### **IV: CQRS Pattern**
 
@@ -70,28 +70,16 @@
   - **Read:** `Event -> Projector -> Read DB` (creates pre-calculated views).
   - **API:** Queries the optimized Read DB.
 - **Analysis:**
-  - **Pros:** **Exceptional** performance & scalability. **Exceptional** extensibility (add new views via projectors).
+  - **Pros:** **Exceptional** performance & scalability. **Great** extensibility (add new views via projectors).
   - **Cons:** **Very High** complexity (dev & ops). Requires deep distributed systems knowledge.
 
----
-
-### **Comparison Matrix**
-
-| Driver              | I: Monolith | II: Normal | III: Microservices | IV: CQRS          |
-| :------------------ | :---------- | :------------------------- | :----------------- | :---------------- |
-| **Dev Velocity**    | Very High   | High                       | Medium             | Low               |
-| **Scalability**     | Low         | Good                       | Excellent          | Exceptional       |
-| **Extensibility**   | Low         | High                       | Excellent          | Exceptional       |
-| **Maintainability** | Low         | High                       | Medium             | High (if skilled) |
-| **Performance**     | Medium      | Medium                     | High               | Exceptional       |
-| **Ops Complexity**  | Very Low    | Low                        | High               | Very High         |
 
 
 # Data Aggregator - Architecture II: Normal App
 
 A **generic, extensible data aggregation system** that fetches data from multiple public APIs and provides a unified interface with automatic aggregations. Built using modern technologies with a focus on simplicity, scalability, and maintainability.
 
-## 🎯 Architecture
+## Architecture
 
 This implementation follows **Architecture II: Normal App** - a decoupled backend API and frontend SPA architecture.
 
@@ -142,7 +130,7 @@ This implementation follows **Architecture II: Normal App** - a decoupled backen
 └─────────────────────────────────────────────────────┘
 ```
 
-## ✨ Key Features
+## Key Features
 
 ### Generic Design
 - **No hardcoded field names** - works with any data structure
@@ -159,7 +147,7 @@ Adding a new data source requires:
 ### Current Data Sources
 - **OpenMeteo** - Weather data (temperature, precipitation, wind speed)
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 ### Backend
 - **FastAPI 0.115+** - Modern Python web framework
@@ -179,53 +167,6 @@ Adding a new data source requires:
 ### DevOps
 - **Docker & Docker Compose** - Containerization
 - **Nginx 1.27** - Reverse proxy & static file serving
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Docker and Docker Compose
-- Git
-
-### Installation
-
-1. **Clone the repository**
-```bash
-git clone https://github.com/szeplakig/data_aggregator.git
-cd data_aggregator
-```
-
-2. **Start all services**
-```bash
-docker-compose up -d
-```
-
-This will:
-- Start PostgreSQL database
-- Build and run the backend API
-- Build and serve the frontend
-- Initialize the database
-- Start fetching data from configured sources
-
-3. **Access the application**
-- **Frontend**: http://localhost
-- **API Documentation**: http://localhost:8000/docs
-- **API Endpoints**: http://localhost:8000/api
-
-### Development Mode
-
-**Backend development:**
-```bash
-cd backend
-pip install -e .
-uvicorn app.main:app --reload
-```
-
-**Frontend development:**
-```bash
-cd frontend
-npm install
-npm run dev
-```
 
 ## 📡 API Endpoints
 
@@ -253,37 +194,6 @@ Get data from a specific source with automatic aggregations.
 - `limit` - Max records to return (default: 100, max: 10000)
 - `offset` - Pagination offset (default: 0)
 - `hours` - Filter to last N hours (optional)
-
-**Response:**
-```json
-{
-  "source": "openmeteo",
-  "type": "hourly",
-  "data": [
-    {
-      "timestamp": "2025-10-04T14:00:00Z",
-      "temperature": 22.5,
-      "precipitation": 0.0,
-      "wind_speed": 12.3
-    }
-  ],
-  "aggregates": {
-    "temperature": {
-      "avg": 21.3,
-      "min": 18.2,
-      "max": 24.7,
-      "sum": 511.2,
-      "count": 24
-    }
-  },
-  "period": {
-    "from": "2025-10-03T14:00:00Z",
-    "to": "2025-10-04T14:00:00Z"
-  },
-  "total_count": 168,
-  "returned_count": 24
-}
-```
 
 ### `POST /api/fetch/{source}`
 Manually trigger immediate data fetch for a specific source.

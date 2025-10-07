@@ -64,6 +64,7 @@ app = FastAPI(
     ),
     version="1.0.0",
     lifespan=lifespan,
+    docs_url="/docs",
 )
 
 # Configure CORS
