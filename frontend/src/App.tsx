@@ -1,10 +1,14 @@
-import { useState } from 'react';
-import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
-import { api } from './api/client';
-import { SourceSelector } from './components/SourceSelector';
-import { DataTable } from './components/DataTable';
-import { AggregatesPanel } from './components/AggregatesPanel';
-import './App.css';
+import { useState } from "react";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from "@tanstack/react-query";
+import { api } from "./api/client";
+import { SourceSelector } from "./components/SourceSelector";
+import { DataTable } from "./components/DataTable";
+import { AggregatesPanel } from "./components/AggregatesPanel";
+import "./App.css";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -27,7 +31,7 @@ function DataAggregatorApp() {
     isLoading: sourcesLoading,
     error: sourcesError,
   } = useQuery({
-    queryKey: ['sources'],
+    queryKey: ["sources"],
     queryFn: () => api.getSources(true),
   });
 
@@ -38,7 +42,7 @@ function DataAggregatorApp() {
     error: dataError,
     refetch: refetchData,
   } = useQuery({
-    queryKey: ['data', selectedSource, dataLimit, hoursFilter],
+    queryKey: ["data", selectedSource, dataLimit, hoursFilter],
     queryFn: () =>
       api.getData(selectedSource!, {
         limit: dataLimit,
@@ -56,7 +60,7 @@ function DataAggregatorApp() {
           refetchData();
         }, 2000);
       } catch (error) {
-        console.error('Failed to trigger fetch:', error);
+        console.error("Failed to trigger fetch:", error);
       }
     }
   };
@@ -103,7 +107,7 @@ function DataAggregatorApp() {
                     Show last:
                   </label>
                   <select
-                    value={hoursFilter || ''}
+                    value={hoursFilter || ""}
                     onChange={(e) =>
                       setHoursFilter(
                         e.target.value ? parseInt(e.target.value) : null
@@ -138,9 +142,9 @@ function DataAggregatorApp() {
                 <button
                   onClick={handleRefresh}
                   disabled={dataLoading}
-                  className="ml-auto px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                  className="ml-auto px-4 py-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
                 >
-                  {dataLoading ? 'Loading...' : 'Refresh Data'}
+                  {dataLoading ? "Loading..." : "Refresh Data"}
                 </button>
               </div>
 
@@ -166,31 +170,40 @@ function DataAggregatorApp() {
                   <div className="p-4 bg-white rounded-lg shadow">
                     <div className="flex flex-wrap gap-4 text-sm">
                       <div>
-                        <span className="text-gray-600">Source:</span>{' '}
-                        <span className="font-medium">{dataResponse.source}</span>
+                        <span className="text-gray-600">Source:</span>{" "}
+                        <span className="font-medium">
+                          {dataResponse.source}
+                        </span>
                       </div>
                       <div>
-                        <span className="text-gray-600">Type:</span>{' '}
+                        <span className="text-gray-600">Type:</span>{" "}
                         <span className="font-medium">{dataResponse.type}</span>
                       </div>
                       <div>
-                        <span className="text-gray-600">Total records:</span>{' '}
+                        <span className="text-gray-600">Total records:</span>{" "}
                         <span className="font-medium">
                           {dataResponse.total_count}
                         </span>
                       </div>
                       <div>
-                        <span className="text-gray-600">Showing:</span>{' '}
+                        <span className="text-gray-600">Showing:</span>{" "}
                         <span className="font-medium">
                           {dataResponse.returned_count}
                         </span>
                       </div>
                       {dataResponse.period.from && (
                         <div>
-                          <span className="text-gray-600">Period:</span>{' '}
+                          <span className="text-gray-600">Period:</span>{" "}
                           <span className="font-medium">
-                            {new Date(dataResponse.period.from).toLocaleString()}{' '}
-                            - {dataResponse.period.to ? new Date(dataResponse.period.to).toLocaleString() : '-'}
+                            {new Date(
+                              dataResponse.period.from
+                            ).toLocaleString()}{" "}
+                            -{" "}
+                            {dataResponse.period.to
+                              ? new Date(
+                                  dataResponse.period.to
+                                ).toLocaleString()
+                              : "-"}
                           </span>
                         </div>
                       )}
@@ -198,12 +211,16 @@ function DataAggregatorApp() {
                   </div>
 
                   {/* Aggregates */}
-                  <AggregatesPanel aggregates={dataResponse.aggregates} />
+                  <AggregatesPanel
+                    aggregates={dataResponse.aggregates}
+                    field_metadata={dataResponse.field_metadata}
+                  />
 
                   {/* Data table */}
                   <DataTable
                     data={dataResponse.data}
                     sourceName={dataResponse.source}
+                    field_metadata={dataResponse.field_metadata}
                   />
                 </>
               )}

@@ -1,6 +1,7 @@
 """Generic repository for data-agnostic CRUD operations."""
 
 from datetime import datetime, timezone
+import json
 from typing import Any, Optional
 import logging
 from sqlalchemy import select, and_, func
@@ -88,21 +89,107 @@ class DataRepository:
         """
         db_points = []
 
-        # If caller provided a unique_key it is ignored here: deduplication
-        # is enforced by a DB unique constraint on (source_id, timestamp).
-        if unique_key is not None:
-            logger.debug(
-                "unique_key provided to save_data_points is ignored; using DB uniqueness"
-            )
+        # unique_key handling below will be used to deduplicate when provided
 
-        # Normalize incoming timestamps and prepare DataPoint objects
+        # Helper to extract nested values
+        def _get_nested(value: dict[str, Any], path: str) -> Any:
+            parts = path.split(".")
+            v: Any = value
+            for p in parts:
+                if not isinstance(v, dict):
+                    return None
+                if p in v:
+                    v = v[p]
+                else:
+                    return None
+            return v
+
+        def _extract_unique_val_from_point(
+            point: dict[str, Any], key: str, ts: datetime | None
+        ) -> Any:
+            if key == "timestamp":
+                return ts
+            if key in point:
+                return point.get(key)
+            for container in ("data", "payload"):
+                if isinstance(point.get(container), dict) and key in point[container]:
+                    return point[container].get(key)
+            if "." in key:
+                return _get_nested(point, key)
+            return None
+
+        def _extract_unique_val_from_db(e: DataPoint, key: str) -> Any:
+            if key == "timestamp":
+                return e.timestamp
+            if key in e.data:
+                return e.data.get(key)
+            for container in ("data", "payload"):
+                if isinstance(e.data.get(container), dict) and key in e.data[container]:
+                    return e.data[container].get(key)
+            if "." in key:
+                parts = key.split(".")
+                v: Any = e.data
+                for p in parts:
+                    if not isinstance(v, dict) or p not in v:
+                        return None
+                    v = v[p]
+                return v
+            return None
+
+        def _normalize_val(v: Any) -> Any:
+            # datetimes -> canonical UTC iso string
+            if isinstance(v, datetime):
+                if v.tzinfo is None:
+                    v = v.replace(tzinfo=timezone.utc)
+                else:
+                    v = v.astimezone(timezone.utc)
+                return v.replace(microsecond=0).isoformat()
+
+            # dict/list/tuple -> stable JSON string (hashable)
+            if isinstance(v, (dict, list, tuple)):
+                try:
+                    return json.dumps(v, sort_keys=True, default=str)
+                except Exception:
+                    return str(v)
+
+            # primitive/hashable types -> return as-is if hashable, else str
+            try:
+                hash(v)
+                return v
+            except Exception:
+                return str(v)
+
+        # Prepare existing sets for unique_key branch
+        existing_keys_norm: set[tuple[str, Any]] = set()
+        existing_unique_vals: set[Any] = set()
+        if unique_key and unique_key != "timestamp":
+            stmt = select(DataPoint).where(DataPoint.source_id == source_id)
+            existing = list(self.db.execute(stmt).scalars().all())
+            for e in existing:
+                key_val = _extract_unique_val_from_db(e, unique_key)
+                existing_unique_vals.add(_normalize_val(key_val))
+                existing_keys_norm.add(
+                    (_normalize_val(e.timestamp), _normalize_val(key_val))
+                )
+
+        # Track seen values within this batch
+        seen_unique_vals: set[Any] = set()
+        seen_timestamps: set[str] = set()
+
+        # Iterate incoming points, extract/normalize timestamps and unique values,
+        # and filter duplicates before creating DataPoint objects
         for point in data_points:
             ts = point.pop("timestamp", None)
-            if isinstance(ts, str):
-                try:
-                    ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-                except Exception:
-                    ts = None
+            if not ts and unique_key:
+                candidate = _extract_unique_val_from_point(point, unique_key, None)
+                if isinstance(candidate, datetime):
+                    ts = candidate
+                elif isinstance(candidate, str):
+                    try:
+                        ts = datetime.fromisoformat(candidate.replace("Z", "+00:00"))
+                    except Exception:
+                        ts = None
+
             if isinstance(ts, datetime):
                 if ts.tzinfo is None:
                     ts = ts.replace(tzinfo=timezone.utc)
@@ -113,6 +200,24 @@ class DataRepository:
                 ts = ts.replace(microsecond=0)
             if not ts:
                 continue
+
+            if unique_key and unique_key != "timestamp":
+                unique_val = _extract_unique_val_from_point(point, unique_key, ts)
+                norm_unique = _normalize_val(unique_val)
+                if (
+                    norm_unique in existing_unique_vals
+                    or norm_unique in seen_unique_vals
+                ):
+                    continue
+                norm_ts = _normalize_val(ts)
+                if (norm_ts, norm_unique) in existing_keys_norm:
+                    continue
+                seen_unique_vals.add(norm_unique)
+            else:
+                norm_ts = _normalize_val(ts)
+                if norm_ts in seen_timestamps:
+                    continue
+                seen_timestamps.add(norm_ts)
 
             db_point = DataPoint(source_id=source_id, timestamp=ts, data=point)
             db_points.append(db_point)

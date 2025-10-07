@@ -76,7 +76,7 @@ DATA_SOURCES_CONFIG: list[dict[str, Any]] = [
                     "display_name": "Precipitation",
                 },
                 "wind_speed": {
-                    "unit": "m/s",
+                    "unit": "km/h",
                     "format": "{:.2f}",
                     "aggregates": ["avg", "min", "max", "count"],
                     "display_name": "Wind Speed",

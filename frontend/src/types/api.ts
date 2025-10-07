@@ -26,6 +26,17 @@ export interface DataResponse {
   type: string;
   data: DataPoint[];
   aggregates: Record<string, Aggregate>;
+  // Optional metadata for fields provided by backend (display name, unit, format, which aggregates to show)
+  field_metadata?: Record<
+    string,
+    {
+      unit?: string;
+      format?: string; // python-style format like "{:.2f}" or simple JS format hints
+      aggregates?: string[];
+      display_name?: string;
+      [key: string]: any;
+    }
+  >;
   period: {
     from?: string;
     to?: string;

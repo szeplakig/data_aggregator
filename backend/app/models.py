@@ -10,7 +10,6 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Text,
-    UniqueConstraint,
 )
 from sqlalchemy import JSON as SA_JSON
 from sqlalchemy.orm import DeclarativeBase, relationship, Mapped, mapped_column
@@ -68,7 +67,4 @@ class DataPoint(Base):
     # Relationships
     source: Mapped["Source"] = relationship(back_populates="data_points")
 
-    __table_args__ = (
-        Index("idx_source_timestamp", "source_id", "timestamp"),
-        UniqueConstraint("source_id", "timestamp", name="uq_source_timestamp"),
-    )
+    __table_args__ = (Index("idx_source_timestamp", "source_id", "timestamp"),)

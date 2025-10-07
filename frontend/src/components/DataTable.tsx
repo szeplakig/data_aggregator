@@ -2,12 +2,20 @@
 import { useState, useMemo } from "react";
 import type { DataPoint } from "../types/api";
 
+interface FieldMeta {
+  unit?: string;
+  format?: string;
+  display_name?: string;
+  [key: string]: any;
+}
+
 interface DataTableProps {
   data: DataPoint[];
   sourceName: string;
+  field_metadata?: Record<string, FieldMeta>;
 }
 
-export function DataTable({ data, sourceName }: DataTableProps) {
+export function DataTable({ data, sourceName, field_metadata }: DataTableProps) {
   const [sortField, setSortField] = useState<string>("timestamp");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
@@ -79,7 +87,7 @@ export function DataTable({ data, sourceName }: DataTableProps) {
                   className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                 >
                   <div className="flex items-center gap-2">
-                    {field.replace(/_/g, " ")}
+                    {(field_metadata?.[field]?.display_name) ?? field.replace(/_/g, " ")}
                     {sortField === field && (
                       <span className="text-blue-500">
                         {sortDirection === "asc" ? "↑" : "↓"}
@@ -98,7 +106,7 @@ export function DataTable({ data, sourceName }: DataTableProps) {
                     key={field}
                     className="px-4 py-3 text-sm text-gray-900 font-mono"
                   >
-                    {formatValue(row[field], field)}
+                    {formatValue(row[field], field, field_metadata?.[field])}
                   </td>
                 ))}
               </tr>
@@ -110,7 +118,7 @@ export function DataTable({ data, sourceName }: DataTableProps) {
   );
 }
 
-function formatValue(value: any, field: string): string {
+function formatValue(value: any, field: string, meta?: FieldMeta): string {
   if (value === null || value === undefined) {
     return "-";
   }
@@ -122,10 +130,21 @@ function formatValue(value: any, field: string): string {
   }
 
   if (typeof value === "number") {
-    return value.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+    // Determine decimals from meta.format if provided (supports python-like '{:.2f}')
+    // Force integer for 'count' fields
+    let decimals = field === 'count' ? 0 : 2;
+    if (field !== 'count' && meta?.format) {
+      const m = meta.format.match(/\{:\.(\d+)f\}/);
+      if (m) decimals = parseInt(m[1], 10);
+    }
+
+    const formatted = value.toLocaleString(undefined, {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
     });
+
+    const unit = meta?.unit ? ` ${meta.unit}` : '';
+    return formatted + unit;
   }
 
   return String(value);

@@ -1,8 +1,17 @@
 // Generic aggregates panel component
 import type { Aggregate } from '../types/api';
 
+interface FieldMeta {
+  unit?: string;
+  format?: string; // e.g. "{:.2f}" from backend
+  aggregates?: string[];
+  display_name?: string;
+  [key: string]: any;
+}
+
 interface AggregatesPanelProps {
   aggregates: Record<string, Aggregate>;
+  field_metadata?: Record<string, FieldMeta>;
 }
 
 function friendlyLabel(key: string): string {
@@ -22,7 +31,7 @@ function friendlyLabel(key: string): string {
   }
 }
 
-export function AggregatesPanel({ aggregates }: AggregatesPanelProps) {
+export function AggregatesPanel({ aggregates, field_metadata }: AggregatesPanelProps) {
   const fields = Object.keys(aggregates);
   console.log(fields);
   
@@ -44,14 +53,28 @@ export function AggregatesPanel({ aggregates }: AggregatesPanelProps) {
                 {field.replace(/_/g, ' ')}
               </h4>
               <div className="space-y-2">
-                {Object.keys(stats).map((k) => (
-                  <StatRow
-                    key={k}
-                    label={friendlyLabel(k)}
-                    value={stats[k]}
-                    decimals={k === 'count' ? 0 : 2}
-                  />
-                ))}
+                {Object.keys(stats).map((k) => {
+                  const meta = field_metadata?.[field];
+                  // choose decimals: if backend provided format like '{:.1f}' try to infer decimals
+                  // Count should always be an integer
+                  let decimals = k === 'count' ? 0 : 2;
+                  if (k !== 'count' && meta?.format) {
+                    const m = meta.format.match(/\{:\.(\d+)f\}/);
+                    if (m) decimals = parseInt(m[1], 10);
+                  }
+
+                  const unit = meta?.unit ? ` ${meta.unit}` : '';
+
+                  return (
+                    <StatRow
+                      key={k}
+                      label={friendlyLabel(k)}
+                      value={stats[k]}
+                      decimals={decimals}
+                      suffix={unit}
+                    />
+                  );
+                })}
               </div>
             </div>
           );
@@ -65,11 +88,17 @@ function StatRow({
   label,
   value,
   decimals = 2,
+  suffix = '',
 }: {
   label: string;
   value?: number;
   decimals?: number;
+  suffix?: string;
 }) {
+  if (label === 'Count') {
+    suffix = '';
+    decimals = 0;
+  }
   const formatted =
     value === null || value === undefined
       ? '-'
@@ -81,7 +110,7 @@ function StatRow({
   return (
     <div className="flex justify-between items-center text-sm">
       <span className="text-gray-600">{label}:</span>
-      <span className="font-mono font-medium">{formatted}</span>
+      <span className="font-mono font-medium">{formatted}{suffix}</span>
     </div>
   );
 }
