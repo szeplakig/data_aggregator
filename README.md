@@ -437,14 +437,14 @@ data_aggregator/
 ### `sources` Table
 Stores metadata about data sources.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | INTEGER | Primary key |
-| name | VARCHAR(50) | Unique source name |
-| type | VARCHAR(20) | 'hourly' or 'daily' |
-| description | TEXT | Source description |
-| enabled | BOOLEAN | Is source active |
-| created_at | TIMESTAMP | Creation time |
+| Column      | Type        | Description         |
+|-------------|-------------|---------------------|
+| id          | INTEGER     | Primary key         |
+| name        | VARCHAR(50) | Unique source name  |
+| type        | VARCHAR(20) | 'hourly' or 'daily' |
+| description | TEXT        | Source description  |
+| enabled     | BOOLEAN     | Is source active    |
+| created_at  | TIMESTAMP   | Creation time       |
 
 ### `data_points` Table
 Stores actual data in JSONB format for maximum flexibility.

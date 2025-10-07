@@ -1,24 +1,39 @@
-"""Generic data source adapter interface."""
+"""Generic data source adapter interface.
+
+This module defines a small adapter contract and a lightweight
+convention for adapter-specific configuration using pydantic
+BaseModel types. Adapters can continue to be instantiated with a
+plain dict (for backward compatibility) — the base class will
+validate/convert the dict into the adapter's declared ConfigModel.
+"""
 
 from abc import ABC, abstractmethod
 from typing import Any
 
+from pydantic import BaseModel
 
-class DataSourceAdapter(ABC):
+
+class BaseConfigModel(BaseModel):
+    unique_key: str | None = None
+
+
+class DataSourceAdapter[ConfigModelType: BaseConfigModel](ABC):
     """
     Abstract base class for data source adapters.
 
-    Each adapter implements this interface to fetch data from
-    different APIs. The adapter transforms API-specific data
-    into a common format that the system can work with.
+    Each adapter must declare a `ConfigModel` (a subclass of
+    `pydantic.BaseModel`) as a class attribute describing its configuration.
+    When an adapter is instantiated with a plain dict, the base class will
+    parse it into the declared model. Adapters should then access
+    configuration using attribute access instead of dict lookups.
     """
 
-    def __init__(self, config: dict[str, Any]):
+    def __init__(self, config: ConfigModelType):
         """
         Initialize adapter with configuration.
 
         Args:
-            config: Adapter-specific configuration dict
+            config: Adapter-specific configuration.
         """
         self.config = config
 
@@ -32,17 +47,17 @@ class DataSourceAdapter(ABC):
             - 'timestamp': datetime object
             - other fields: any JSON-serializable data
         """
-        pass
+        ...
 
     @abstractmethod
     def get_source_name(self) -> str:
         """Get the name of this data source."""
-        pass
+        ...
 
     @abstractmethod
     def get_data_type(self) -> str:
         """Get the data type ('hourly' or 'daily')."""
-        pass
+        ...
 
     @abstractmethod
     def get_numeric_fields(self) -> list[str]:
@@ -52,8 +67,27 @@ class DataSourceAdapter(ABC):
         Returns:
             List of field names that contain numeric data
         """
-        pass
+        ...
 
     def get_description(self) -> str:
-        """Get description of the data source."""
-        return self.config.get("description", "")
+        """Get description of the data source (if provided in config)."""
+        return getattr(self.config, "description", "")
+
+    @abstractmethod
+    def get_metadata(self) -> dict[str, Any] | None:
+        """Return metadata about the source.
+
+        Adapters that expose metadata MUST implement this method. This
+        enforces that source-specific logic lives inside adapters instead of
+        being extracted by generic code (scheduler/repository).
+        """
+        ...
+
+    @abstractmethod
+    def get_unique_key(self) -> str | None:
+        """Return the optional unique_key used to deduplicate incoming points.
+
+        Default implementation looks for a `unique_key` entry in the
+        adapter config (supports pydantic models and plain dicts).
+        """
+        ...

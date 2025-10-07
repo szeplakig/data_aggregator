@@ -4,6 +4,8 @@ from typing import Any
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from backend.app.adapters.openmeteo import OpenMeteoConfig
+
 
 class Settings(BaseSettings):
     """Application settings."""
@@ -44,26 +46,23 @@ DATA_SOURCES_CONFIG: list[dict[str, Any]] = [
         "adapter_class": "OpenMeteoAdapter",
         "fetch_interval_minutes": 180,  # 3 hours to avoid rate limiting
         "enabled": True,
-        "config": {
-            "base_url": "https://api.open-meteo.com/v1/forecast",
-            "params": {
+        "config": OpenMeteoConfig(
+            base_url="https://api.open-meteo.com/v1/forecast",
+            params={
                 "latitude": 48.2081,
                 "longitude": 16.3713,
                 "hourly": "temperature_2m,precipitation,wind_speed_10m",
                 "timezone": "UTC",
             },
-            "field_mapping": {
+            field_mapping={
                 "temperature_2m": "temperature",
                 "wind_speed_10m": "wind_speed",
             },
-            "numeric_fields": ["temperature", "precipitation", "wind_speed"],
-            "location": "Vienna, Austria",  # Display location
-            "location_coords": "48.2081°N, 16.3713°E",
-            # Unique key used for deduping alongside timestamp. If null,
-            # dedupe will be performed on timestamp only.
-            "unique_key": None,
-            # Per-field metadata: unit, format (python format string), and which aggregates to compute
-            "fields": {
+            numeric_fields=["temperature", "precipitation", "wind_speed"],
+            location="Vienna, Austria",
+            location_coords="48.2081°N, 16.3713°E",
+            unique_key="created_at",
+            fields={
                 "temperature": {
                     "unit": "°C",
                     "format": "{:.1f}",
@@ -83,6 +82,6 @@ DATA_SOURCES_CONFIG: list[dict[str, Any]] = [
                     "display_name": "Wind Speed",
                 },
             },
-        },
+        ),
     },
 ]

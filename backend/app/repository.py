@@ -1,11 +1,14 @@
 """Generic repository for data-agnostic CRUD operations."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
+import logging
 from sqlalchemy import select, and_, func
 from sqlalchemy.orm import Session
 
 from app.models import Source, DataPoint
+
+logger = logging.getLogger(__name__)
 
 
 class DataRepository:
@@ -85,46 +88,61 @@ class DataRepository:
         """
         db_points = []
 
-        # Pre-query existing points to avoid duplicates.
-        existing_keys = set()
-        existing_timestamps = set()
-
-        timestamps = {p.get("timestamp") for p in data_points if p.get("timestamp")}
-        if timestamps:
-            stmt = select(DataPoint).where(
-                DataPoint.source_id == source_id,
-                DataPoint.timestamp.in_(list(timestamps)),
+        # If caller provided a unique_key it is ignored here: deduplication
+        # is enforced by a DB unique constraint on (source_id, timestamp).
+        if unique_key is not None:
+            logger.debug(
+                "unique_key provided to save_data_points is ignored; using DB uniqueness"
             )
-            existing = list(self.db.execute(stmt).scalars().all())
-            for e in existing:
-                if unique_key:
-                    # e.data is a dict stored in JSONB
-                    key_val = e.data.get(unique_key)
-                    existing_keys.add((e.timestamp, key_val))
-                else:
-                    existing_timestamps.add(e.timestamp)
 
+        # Normalize incoming timestamps and prepare DataPoint objects
         for point in data_points:
-            timestamp = point.pop("timestamp")
+            ts = point.pop("timestamp", None)
+            if isinstance(ts, str):
+                try:
+                    ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                except Exception:
+                    ts = None
+            if isinstance(ts, datetime):
+                if ts.tzinfo is None:
+                    ts = ts.replace(tzinfo=timezone.utc)
+                else:
+                    ts = ts.astimezone(timezone.utc)
+                # Round/truncate to second precision to avoid duplicates from
+                # sub-second differences.
+                ts = ts.replace(microsecond=0)
+            if not ts:
+                continue
 
-            # If unique_key provided, skip when (timestamp, unique_val) exists.
-            # Otherwise, skip when timestamp alone already exists.
-            if unique_key:
-                unique_val = point.get(unique_key)
-                if (timestamp, unique_val) in existing_keys:
-                    continue
-            else:
-                if timestamp in existing_timestamps:
-                    continue
-
-            db_point = DataPoint(source_id=source_id, timestamp=timestamp, data=point)
+            db_point = DataPoint(source_id=source_id, timestamp=ts, data=point)
             db_points.append(db_point)
 
-        if db_points:
+        if not db_points:
+            return 0
+
+        # Try bulk insert. If the DB raises IntegrityError because some rows
+        # already exist (unique constraint on source_id+timestamp), fall back
+        # to inserting one-by-one and skip duplicates.
+        from sqlalchemy.exc import IntegrityError
+
+        try:
             self.db.bulk_save_objects(db_points)
             self.db.commit()
-
-        return len(db_points)
+            return len(db_points)
+        except IntegrityError:
+            # rollback and try per-row inserts to skip duplicates
+            self.db.rollback()
+            saved = 0
+            for obj in db_points:
+                try:
+                    self.db.add(obj)
+                    self.db.commit()
+                    saved += 1
+                except IntegrityError:
+                    # duplicate - skip
+                    self.db.rollback()
+                    continue
+            return saved
 
     def get_data_points(
         self,

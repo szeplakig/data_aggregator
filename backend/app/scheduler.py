@@ -50,18 +50,10 @@ class DataFetchScheduler:
             try:
                 repo = DataRepository(db)
 
-                # Extract metadata from adapter config
-                config = getattr(adapter, "config", {})
-                metadata = {}
-                # Copy simple metadata fields
-                if "location" in config:
-                    metadata["location"] = config["location"]
-                if "location_coords" in config:
-                    metadata["location_coords"] = config["location_coords"]
-                # Per-field metadata (units, formatting, aggregates to compute)
-                # Adapter configs may provide a `fields` map, store it as-is
-                if "fields" in config and isinstance(config["fields"], dict):
-                    metadata["fields"] = config["fields"]
+                # Let adapter provide metadata and unique_key handling
+                # Ask adapter for metadata. Adapters are responsible for
+                # providing any source-specific metadata.
+                metadata = adapter.get_metadata()
 
                 # Get or create source
                 source = repo.get_or_create_source(
@@ -72,9 +64,7 @@ class DataFetchScheduler:
                 )
 
                 # Save data points (support optional per-source unique_key to dedupe)
-                unique_key = (
-                    config.get("unique_key") if isinstance(config, dict) else None
-                )
+                unique_key = adapter.get_unique_key()
                 count = repo.save_data_points(
                     source.id, data_points, unique_key=unique_key
                 )

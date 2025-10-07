@@ -1,7 +1,7 @@
 """API endpoints."""
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.repository import DataRepository
 from app.schemas import SourceResponse, DataResponse, ErrorResponse
-from app.aggregator import DataAggregator
 from app.scheduler import get_scheduler
+from backend.app.endpoint_handlers.get_data_handler import GetDataHandler
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ def get_data(
     hours: Optional[int] = Query(
         None, ge=1, description="Only return data from last N hours"
     ),
-    db: Session = Depends(get_db),
+    handler: GetDataHandler = Depends(GetDataHandler),
 ) -> DataResponse:
     """
     Get data from a specific source.
@@ -63,93 +63,7 @@ def get_data(
     - Aggregated statistics for numeric fields
     - Time period information
     """
-    repo = DataRepository(db)
-
-    # Get source
-    source = repo.get_source_by_name(source_name)
-    if not source:
-        raise HTTPException(status_code=404, detail=f"Source '{source_name}' not found")
-
-    # Calculate time filter if hours specified
-    from_time = None
-    to_time = None
-    if hours:
-        to_time = datetime.utcnow()
-        from_time = to_time - timedelta(hours=hours)
-
-    # Get data points
-    data_points = repo.get_data_points(
-        source_id=source.id,
-        limit=limit,
-        offset=offset,
-        from_time=from_time,
-        to_time=to_time,
-    )
-
-    # Get total count
-    total_count = repo.count_data_points(
-        source_id=source.id, from_time=from_time, to_time=to_time
-    )
-
-    # Transform to response format
-    data_list = []
-    for point in data_points:
-        data_dict = {"timestamp": point.timestamp, **point.data}
-        data_list.append(data_dict)
-
-    # Calculate aggregates according to per-source field metadata
-    aggregates = {}
-    field_metadata: dict[str, dict] = {}
-    if data_list:
-        # Load field metadata persisted in the Source.meta
-        source_meta = source.meta or {}
-        fields_opts = (
-            source_meta.get("fields", {}) if isinstance(source_meta, dict) else {}
-        )
-
-        # If adapter is present, ensure numeric fields are covered even if not listed
-        scheduler = get_scheduler()
-        if source_name in scheduler.adapters:
-            adapter_numeric = scheduler.adapters[source_name].get_numeric_fields()
-            # Ensure each numeric field has at least an entry in fields_opts
-            for f in adapter_numeric:
-                fields_opts.setdefault(f, {})
-        else:
-            # Auto-detect numeric fields and ensure an entry exists
-            detected = DataAggregator.detect_numeric_fields(data_list)
-            for f in detected:
-                fields_opts.setdefault(f, {})
-
-        # Compute aggregates per field using provided options
-        aggregates = DataAggregator.aggregate_with_options(data_list, fields_opts)
-
-        # Expose field metadata (units/format/aggregates) to client for formatting
-        field_metadata = {}
-        for fname, opts in fields_opts.items():
-            # only include minimal, safe keys
-            field_metadata[fname] = {
-                "unit": opts.get("unit"),
-                "format": opts.get("format"),
-                "aggregates": opts.get("aggregates"),
-                "display_name": opts.get("display_name"),
-            }
-
-    # Determine time period
-    period = {}
-    if data_list:
-        timestamps = [d["timestamp"] for d in data_list]
-        period = {"from": min(timestamps), "to": max(timestamps)}
-
-    return DataResponse(
-        source=source_name,
-        type=source.type,
-        data=data_list,
-        aggregates=aggregates,
-        field_metadata=field_metadata,
-        period=period,
-        total_count=total_count,
-        returned_count=len(data_list),
-    )
+    return handler.handle(source_name, limit, offset, hours)
 
 
 @router.post(
@@ -173,7 +87,7 @@ async def trigger_fetch(source_name: str, db: Session = Depends(get_db)) -> dict
 
     return {
         "message": f"Data fetch triggered for {source_name}",
-        "timestamp": datetime.utcnow(),
+        "timestamp": datetime.now(tz=UTC),
     }
 
 
@@ -190,5 +104,5 @@ async def trigger_fetch_all() -> dict:
     return {
         "message": "Data fetch triggered for all sources",
         "sources": list(scheduler.adapters.keys()),
-        "timestamp": datetime.utcnow(),
+        "timestamp": datetime.now(tz=UTC),
     }
