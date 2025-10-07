@@ -44,7 +44,7 @@ DATA_SOURCES_CONFIG: list[dict[str, Any]] = [
         "type": "hourly",
         "description": "Open-Meteo Weather API - Hourly forecast data",
         "adapter_class": "OpenMeteoAdapter",
-        "fetch_interval_minutes": 180,  # 3 hours to avoid rate limiting
+        "fetch_interval_minutes": 60,
         "enabled": True,
         "config": OpenMeteoConfig(
             base_url="https://api.open-meteo.com/v1/forecast",
@@ -61,7 +61,9 @@ DATA_SOURCES_CONFIG: list[dict[str, Any]] = [
             numeric_fields=["temperature", "precipitation", "wind_speed"],
             location="Vienna, Austria",
             location_coords="48.2081°N, 16.3713°E",
-            unique_key="created_at",
+            unique_key="timestamp",
+            # Use timestamp as unique key so hourly points aren't deduplicated
+            # on a non-existent field like `created_at`.
             fields={
                 "temperature": {
                     "unit": "°C",

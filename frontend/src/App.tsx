@@ -46,7 +46,7 @@ function DataAggregatorApp() {
     queryFn: () =>
       api.getData(selectedSource!, {
         limit: dataLimit,
-        hours: hoursFilter || undefined,
+        hours: hoursFilter ?? undefined,
       }),
     enabled: !!selectedSource,
   });
