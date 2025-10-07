@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import Any
-from backend.app.models import Source
+from app.models import Source
 from pydantic import BaseModel, Field
 
 
@@ -14,20 +14,21 @@ class SourceResponse(BaseModel):
     type: str
     description: str | None = None
     enabled: bool
-    metadata: dict[str, Any] | None = None  # Include location and other metadata
+    meta: dict[str, Any] | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
 
     @classmethod
     def from_source(cls, source: Source):
+        # Ensure we return the stored meta field as `meta`
         return cls(
             id=source.id,
             name=source.name,
             type=source.type,
             description=source.description,
             enabled=source.enabled,
-            metadata=source.metadata,
+            meta=source.meta,
             created_at=source.created_at,
         )
 
@@ -47,6 +48,11 @@ class DataResponse(BaseModel):
     data: list[dict[str, Any]]
     aggregates: dict[str, dict[str, float]] = Field(
         default_factory=dict, description="Statistics for numeric fields"
+    )
+    # Metadata about fields (units, display formatting, which aggregates apply)
+    field_metadata: dict[str, dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Per-field metadata: unit, format string, aggregates to include",
     )
     period: dict[str, datetime | None] = Field(
         default_factory=dict, description="Time range of the data"

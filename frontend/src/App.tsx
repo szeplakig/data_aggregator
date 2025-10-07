@@ -190,7 +190,7 @@ function DataAggregatorApp() {
                           <span className="text-gray-600">Period:</span>{' '}
                           <span className="font-medium">
                             {new Date(dataResponse.period.from).toLocaleString()}{' '}
-                            - {new Date(dataResponse.period.to!).toLocaleString()}
+                            - {dataResponse.period.to ? new Date(dataResponse.period.to).toLocaleString() : '-'}
                           </span>
                         </div>
                       )}

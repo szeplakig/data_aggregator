@@ -40,10 +40,10 @@ export function SourceSelector({
           >
             <div className="font-semibold text-lg">{source.name}</div>
             <div className="text-sm text-gray-600 mt-1">{source.type}</div>
-            {source.metadata?.location && (
+            {source.meta?.location && (
               <div className="text-xs text-blue-600 mt-1 flex items-center gap-1">
                 <span>📍</span>
-                <span>{source.metadata.location}</span>
+                <span>{source.meta.location}</span>
               </div>
             )}
             {source.description && (

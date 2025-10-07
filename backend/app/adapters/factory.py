@@ -3,13 +3,11 @@
 from typing import Type
 from app.adapters import DataSourceAdapter
 from app.adapters.openmeteo import OpenMeteoAdapter
-from app.adapters.coincap import CoinCapAdapter
 
 
 # Registry of available adapters
 ADAPTER_REGISTRY: dict[str, Type[DataSourceAdapter]] = {
     "OpenMeteoAdapter": OpenMeteoAdapter,
-    "CoinCapAdapter": CoinCapAdapter,
 }
 
 

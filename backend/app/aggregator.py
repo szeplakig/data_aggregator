@@ -102,3 +102,64 @@ class DataAggregator:
                         pass
 
         return sorted(list(numeric_fields))
+
+    @staticmethod
+    def aggregate_with_options(
+        data: list[dict[str, Any]],
+        field_options: dict[str, dict[str, Any]],
+        default_aggregates: list[str] | None = None,
+    ) -> dict[str, dict[str, float]]:
+        """
+        Calculate aggregates for fields according to per-field options.
+
+        Args:
+            data: List of data point dictionaries
+            field_options: Mapping from field name to options. Supported options:
+                - aggregates: list[str] e.g. ["avg","min","max","sum","count"]
+            default_aggregates: Aggregates to use when field has no explicit list.
+
+        Returns:
+            Dict mapping field names to their computed statistics.
+        """
+        if not data:
+            return {}
+
+        if default_aggregates is None:
+            # sensible default: exclude `sum` to avoid nonsensical sums like temperature
+            default_aggregates = ["avg", "min", "max", "count"]
+
+        aggregates = {}
+
+        for field, opts in field_options.items():
+            wanted = opts.get("aggregates", default_aggregates)
+
+            # Extract numeric values for this field
+            values = []
+            for point in data:
+                val = point.get(field)
+                if val is None:
+                    continue
+                try:
+                    values.append(float(val))
+                except (ValueError, TypeError):
+                    continue
+
+            if not values:
+                continue
+
+            stats: dict[str, float] = {}
+            if "avg" in wanted:
+                stats["avg"] = round(sum(values) / len(values), 6)
+            if "min" in wanted:
+                stats["min"] = round(min(values), 6)
+            if "max" in wanted:
+                stats["max"] = round(max(values), 6)
+            if "sum" in wanted:
+                stats["sum"] = round(sum(values), 6)
+            if "count" in wanted:
+                stats["count"] = len(values)
+
+            if stats:
+                aggregates[field] = stats
+
+        return aggregates

@@ -25,6 +25,8 @@ class Settings(BaseSettings):
 
     # Scheduler
     default_fetch_interval_minutes: int = 180  # 3 hours to avoid rate limiting
+    # Whether to perform an immediate fetch on application startup
+    startup_fetch: bool = True
 
 
 @lru_cache
@@ -57,24 +59,30 @@ DATA_SOURCES_CONFIG: list[dict[str, Any]] = [
             "numeric_fields": ["temperature", "precipitation", "wind_speed"],
             "location": "Vienna, Austria",  # Display location
             "location_coords": "48.2081°N, 16.3713°E",
-        },
-    },
-    {
-        "name": "coincap",
-        "type": "hourly",
-        "description": "CoinCap API - Cryptocurrency prices",
-        "adapter_class": "CoinCapAdapter",
-        "fetch_interval_minutes": 180,  # 3 hours to avoid rate limiting
-        "enabled": True,
-        "config": {
-            "base_url": "https://api.coincap.io/v2/assets",
-            "params": {"limit": 5},
-            "field_mapping": {
-                "priceUsd": "price_usd",
-                "changePercent24Hr": "change_24h",
-                "marketCapUsd": "market_cap_usd",
+            # Unique key used for deduping alongside timestamp. If null,
+            # dedupe will be performed on timestamp only.
+            "unique_key": None,
+            # Per-field metadata: unit, format (python format string), and which aggregates to compute
+            "fields": {
+                "temperature": {
+                    "unit": "°C",
+                    "format": "{:.1f}",
+                    "aggregates": ["avg", "min", "max", "count"],
+                    "display_name": "Temperature",
+                },
+                "precipitation": {
+                    "unit": "mm",
+                    "format": "{:.2f}",
+                    "aggregates": ["sum", "avg", "count"],
+                    "display_name": "Precipitation",
+                },
+                "wind_speed": {
+                    "unit": "m/s",
+                    "format": "{:.2f}",
+                    "aggregates": ["avg", "min", "max", "count"],
+                    "display_name": "Wind Speed",
+                },
             },
-            "numeric_fields": ["price_usd", "change_24h", "market_cap_usd"],
         },
     },
 ]

@@ -40,9 +40,12 @@ async def lifespan(app: FastAPI):
     logger.info("Scheduler started")
 
     # Optionally fetch data immediately on startup
-    logger.info("Fetching initial data...")
-    await scheduler.fetch_all_now()
-    logger.info("Initial data fetched")
+    if settings.startup_fetch:
+        logger.info("Fetching initial data...")
+        await scheduler.fetch_all_now()
+        logger.info("Initial data fetched")
+    else:
+        logger.info("Skipping initial data fetch (startup_fetch=False)")
 
     yield
 

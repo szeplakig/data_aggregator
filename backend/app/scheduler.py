@@ -51,12 +51,17 @@ class DataFetchScheduler:
                 repo = DataRepository(db)
 
                 # Extract metadata from adapter config
-                config = getattr(adapter, 'config', {})
+                config = getattr(adapter, "config", {})
                 metadata = {}
-                if 'location' in config:
-                    metadata['location'] = config['location']
-                if 'location_coords' in config:
-                    metadata['location_coords'] = config['location_coords']
+                # Copy simple metadata fields
+                if "location" in config:
+                    metadata["location"] = config["location"]
+                if "location_coords" in config:
+                    metadata["location_coords"] = config["location_coords"]
+                # Per-field metadata (units, formatting, aggregates to compute)
+                # Adapter configs may provide a `fields` map, store it as-is
+                if "fields" in config and isinstance(config["fields"], dict):
+                    metadata["fields"] = config["fields"]
 
                 # Get or create source
                 source = repo.get_or_create_source(
@@ -66,8 +71,13 @@ class DataFetchScheduler:
                     metadata=metadata if metadata else None,
                 )
 
-                # Save data points
-                count = repo.save_data_points(source.id, data_points)
+                # Save data points (support optional per-source unique_key to dedupe)
+                unique_key = (
+                    config.get("unique_key") if isinstance(config, dict) else None
+                )
+                count = repo.save_data_points(
+                    source.id, data_points, unique_key=unique_key
+                )
                 logger.info(
                     f"Saved {count} data points from {source_name} "
                     f"(source_id: {source.id})"
@@ -100,6 +110,7 @@ class DataFetchScheduler:
             id=f"fetch_{source_name}",
             name=f"Fetch data from {source_name}",
             replace_existing=True,
+            next_run_time=None,
         )
 
         logger.info(

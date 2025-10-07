@@ -97,21 +97,42 @@ def get_data(
         data_dict = {"timestamp": point.timestamp, **point.data}
         data_list.append(data_dict)
 
-    # Calculate aggregates
+    # Calculate aggregates according to per-source field metadata
     aggregates = {}
+    field_metadata: dict[str, dict] = {}
     if data_list:
-        # Get numeric fields from scheduler adapter config
+        # Load field metadata persisted in the Source.meta
+        source_meta = source.meta or {}
+        fields_opts = (
+            source_meta.get("fields", {}) if isinstance(source_meta, dict) else {}
+        )
+
+        # If adapter is present, ensure numeric fields are covered even if not listed
         scheduler = get_scheduler()
-        numeric_fields = []
-
         if source_name in scheduler.adapters:
-            numeric_fields = scheduler.adapters[source_name].get_numeric_fields()
+            adapter_numeric = scheduler.adapters[source_name].get_numeric_fields()
+            # Ensure each numeric field has at least an entry in fields_opts
+            for f in adapter_numeric:
+                fields_opts.setdefault(f, {})
         else:
-            # Fallback: auto-detect numeric fields
-            numeric_fields = DataAggregator.detect_numeric_fields(data_list)
+            # Auto-detect numeric fields and ensure an entry exists
+            detected = DataAggregator.detect_numeric_fields(data_list)
+            for f in detected:
+                fields_opts.setdefault(f, {})
 
-        if numeric_fields:
-            aggregates = DataAggregator.aggregate(data_list, numeric_fields)
+        # Compute aggregates per field using provided options
+        aggregates = DataAggregator.aggregate_with_options(data_list, fields_opts)
+
+        # Expose field metadata (units/format/aggregates) to client for formatting
+        field_metadata = {}
+        for fname, opts in fields_opts.items():
+            # only include minimal, safe keys
+            field_metadata[fname] = {
+                "unit": opts.get("unit"),
+                "format": opts.get("format"),
+                "aggregates": opts.get("aggregates"),
+                "display_name": opts.get("display_name"),
+            }
 
     # Determine time period
     period = {}
@@ -124,6 +145,7 @@ def get_data(
         type=source.type,
         data=data_list,
         aggregates=aggregates,
+        field_metadata=field_metadata,
         period=period,
         total_count=total_count,
         returned_count=len(data_list),

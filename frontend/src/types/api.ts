@@ -5,7 +5,7 @@ export interface Source {
   type: string;
   description: string | null;
   enabled: boolean;
-  metadata?: {
+  meta?: {
     location?: string;
     location_coords?: string;
     [key: string]: any;
@@ -18,13 +18,8 @@ export interface DataPoint {
   [key: string]: any;
 }
 
-export interface Aggregate {
-  avg: number;
-  min: number;
-  max: number;
-  sum: number;
-  count: number;
-}
+// Aggregate is dynamic: backend controls which aggregate metrics are present
+export type Aggregate = Record<string, number | undefined>;
 
 export interface DataResponse {
   source: string;

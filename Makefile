@@ -1,5 +1,3 @@
-
-
-lint:
-	poetry run flint format .
-	poetry run flint check --fix .
+flint:
+	poetry run ruff format .
+	poetry run ruff check --fix .

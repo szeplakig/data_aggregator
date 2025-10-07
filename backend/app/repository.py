@@ -41,7 +41,7 @@ class DataRepository:
             type=type,
             description=description,
             enabled=enabled,
-            metadata=metadata or {},
+            meta=metadata or {},
         )
         self.db.add(source)
         self.db.commit()
@@ -59,8 +59,8 @@ class DataRepository:
         source = self.get_source_by_name(name)
         if source:
             # Update metadata if provided
-            if metadata and source.metadata != metadata:
-                source.metadata = metadata
+            if metadata and source.meta != metadata:
+                source.meta = metadata
                 self.db.commit()
                 self.db.refresh(source)
             return source
@@ -68,7 +68,10 @@ class DataRepository:
 
     # Data point operations
     def save_data_points(
-        self, source_id: int, data_points: list[dict[str, Any]]
+        self,
+        source_id: int,
+        data_points: list[dict[str, Any]],
+        unique_key: str | None = None,
     ) -> int:
         """
         Save multiple data points.
@@ -81,13 +84,46 @@ class DataRepository:
             Number of data points saved
         """
         db_points = []
+
+        # Pre-query existing points to avoid duplicates.
+        existing_keys = set()
+        existing_timestamps = set()
+
+        timestamps = {p.get("timestamp") for p in data_points if p.get("timestamp")}
+        if timestamps:
+            stmt = select(DataPoint).where(
+                DataPoint.source_id == source_id,
+                DataPoint.timestamp.in_(list(timestamps)),
+            )
+            existing = list(self.db.execute(stmt).scalars().all())
+            for e in existing:
+                if unique_key:
+                    # e.data is a dict stored in JSONB
+                    key_val = e.data.get(unique_key)
+                    existing_keys.add((e.timestamp, key_val))
+                else:
+                    existing_timestamps.add(e.timestamp)
+
         for point in data_points:
             timestamp = point.pop("timestamp")
+
+            # If unique_key provided, skip when (timestamp, unique_val) exists.
+            # Otherwise, skip when timestamp alone already exists.
+            if unique_key:
+                unique_val = point.get(unique_key)
+                if (timestamp, unique_val) in existing_keys:
+                    continue
+            else:
+                if timestamp in existing_timestamps:
+                    continue
+
             db_point = DataPoint(source_id=source_id, timestamp=timestamp, data=point)
             db_points.append(db_point)
 
-        self.db.bulk_save_objects(db_points)
-        self.db.commit()
+        if db_points:
+            self.db.bulk_save_objects(db_points)
+            self.db.commit()
+
         return len(db_points)
 
     def get_data_points(

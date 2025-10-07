@@ -1,3 +1,92 @@
+# Problem Description
+
+- You will get URLs from 2 different public APIs which will deliver some public hourly and daily data in JSON formats of their own, where we are interested only in a few of parameters
+- You will create an API of your own, which would provide this data to clients, who can chose the source and returns a few parameters our clients are interested in
+- you will display them in one local page, without any special design requirement
+- you might want to provide clients with some aggregates of data, since some of the parameters are numbers
+- Details about APIs will be provided
+
+# Expected Results
+
+- use modern and efficient approaches, concepts and patterns
+- think about both: simplicity and scalability in more meanings than one
+- think about quality of the code and its expandability
+- think about efficiency, resources and costs
+
+# Preparations and Tools
+
+- have a local environment for running a single WEB page ready on your laptop
+- have access to internet
+- use any of the following languages: Golang, Java, Python
+- use any kind of tools you want to
+- you can prepare all scaffolding for the project you want to and build on top of it
+
+---
+
+### **Key Drivers**
+
+- **Extensibility:** Easy to add new data sources/views.
+- **Scalability:** Handle more data sources, traffic, and clients.
+- **Maintainability:** Easy to debug, fix, and enhance.
+- **Performance:** Low-latency API reads.
+- **Ops Efficiency:** Simple to deploy, monitor; low infrastructure cost.
+
+---
+
+### **Architectures**
+
+#### **I: Monolith**
+
+- **Concept:** Single FastAPI app does everything.
+- **Flow:** `Scheduler -> Data Fetcher -> PostgreSQL (JSONB) -> API/View Layer (Jinja2)`.
+- **Analysis:**
+  - **Pros:** **Very Fast** dev speed. **Very Simple** ops.
+  - **Cons:** **Low** scalability (single point of failure). **Low** extensibility (tight coupling).
+
+#### **II: Normal App**
+
+- **Concept:** Decoupled Backend API and Frontend SPA.
+- **Flow:**
+  - **Backend (FastAPI):** Handles data fetching/storage. Exposes a JSON API only.
+  - **Frontend (React):** Standalone SPA. Consumes the backend API. Built and served by Nginx.
+  - **Proxy (Nginx):** Serves static frontend files, routes `/api/*` to the backend.
+- **Analysis:**
+  - **Pros:** **High** dev speed (parallel work). **Good** scalability (frontend/backend scale independently). **High** extensibility (clean API contract).
+  - **Cons:** Slightly more setup than a monolith.
+
+#### **III: Microservices**
+
+- **Concept:** Decomposed into small, single-responsibility services.
+- **Flow:** `Ingestion Service(s) -> Central DB -> Backend API Service -> Frontend`.
+- **Analysis:**
+  - **Pros:** **Excellent** scalability & extensibility (scale/add services independently).
+  - **Cons:** **High** ops complexity (deployment, monitoring, service discovery). Slower initial dev.
+
+#### **IV: CQRS Pattern**
+
+- **Concept:** Separate read/write paths for max performance. Event-driven.
+- **Flow:**
+  - **Write:** `Command -> Message Bus -> Handler -> Write DB` (publishes `Event`).
+  - **Read:** `Event -> Projector -> Read DB` (creates pre-calculated views).
+  - **API:** Queries the optimized Read DB.
+- **Analysis:**
+  - **Pros:** **Exceptional** performance & scalability. **Exceptional** extensibility (add new views via projectors).
+  - **Cons:** **Very High** complexity (dev & ops). Requires deep distributed systems knowledge.
+
+---
+
+### **Comparison Matrix**
+
+| Driver              | I: Monolith | II: Normal | III: Microservices | IV: CQRS          |
+| :------------------ | :---------- | :------------------------- | :----------------- | :---------------- |
+| **Dev Velocity**    | Very High   | High                       | Medium             | Low               |
+| **Scalability**     | Low         | Good                       | Excellent          | Exceptional       |
+| **Extensibility**   | Low         | High                       | Excellent          | Exceptional       |
+| **Maintainability** | Low         | High                       | Medium             | High (if skilled) |
+| **Performance**     | Medium      | Medium                     | High               | Exceptional       |
+| **Ops Complexity**  | Very Low    | Low                        | High               | Very High         |
+
+
 # Data Aggregator - Architecture II: Normal App
 
 A **generic, extensible data aggregation system** that fetches data from multiple public APIs and provides a unified interface with automatic aggregations. Built using modern technologies with a focus on simplicity, scalability, and maintainability.
@@ -22,28 +111,28 @@ This implementation follows **Architecture II: Normal App** - a decoupled backen
                    │
 ┌──────────────────┴──────────────────────────────────┐
 │  Backend (FastAPI)                                  │
-│  ┌─────────────────────────────────────────────┐   │
-│  │ Generic Adapter System                      │   │
-│  │ - DataSourceAdapter (ABC)                   │   │
-│  │ - OpenMeteoAdapter, CoinCapAdapter          │   │
-│  │ - Easy to add new sources                   │   │
-│  └─────────────────────────────────────────────┘   │
-│  ┌─────────────────────────────────────────────┐   │
-│  │ Generic Aggregator                          │   │
-│  │ - Calculates stats for any numeric fields  │   │
-│  │ - avg, min, max, sum, count                 │   │
-│  └─────────────────────────────────────────────┘   │
-│  ┌─────────────────────────────────────────────┐   │
-│  │ Scheduler (APScheduler)                     │   │
-│  │ - Fetches data on intervals                 │   │
-│  │ - Configurable per source                   │   │
-│  └─────────────────────────────────────────────┘   │
-│  ┌─────────────────────────────────────────────┐   │
-│  │ REST API                                    │   │
-│  │ - GET /api/sources                          │   │
-│  │ - GET /api/data/{source}                    │   │
-│  │ - POST /api/fetch/{source}                  │   │
-│  └─────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────┐    │
+│  │ Generic Adapter System                      │    │
+│  │ - DataSourceAdapter (ABC)                   │    │
+│  │ - OpenMeteoAdapter                          │    │
+│  │ - Easy to add new sources                   │    │
+│  └─────────────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────────────┐    │
+│  │ Generic Aggregator                          │    │
+│  │ - Calculates stats for any numeric fields   │    │
+│  │ - avg, min, max, sum, count                 │    │
+│  └─────────────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────────────┐    │
+│  │ Scheduler (APScheduler)                     │    │
+│  │ - Fetches data on intervals                 │    │
+│  │ - Configurable per source                   │    │
+│  └─────────────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────────────┐    │
+│  │ REST API                                    │    │
+│  │ - GET /api/sources                          │    │
+│  │ - GET /api/data/{source}                    │    │
+│  │ - POST /api/fetch/{source}                  │    │
+│  └─────────────────────────────────────────────┘    │
 └──────────────────┬──────────────────────────────────┘
                    │
 ┌──────────────────┴──────────────────────────────────┐
@@ -69,7 +158,6 @@ Adding a new data source requires:
 
 ### Current Data Sources
 - **OpenMeteo** - Weather data (temperature, precipitation, wind speed)
-- **CoinCap** - Cryptocurrency prices (price, market cap, 24h change)
 
 ## 🛠️ Technology Stack
 
@@ -258,7 +346,6 @@ from app.adapters.myapi import MyAPIAdapter
 
 ADAPTER_REGISTRY: dict[str, Type[DataSourceAdapter]] = {
     "OpenMeteoAdapter": OpenMeteoAdapter,
-    "CoinCapAdapter": CoinCapAdapter,
     "MyAPIAdapter": MyAPIAdapter,  # Add this
 }
 ```
@@ -316,8 +403,7 @@ data_aggregator/
 │   │   └── adapters/
 │   │       ├── __init__.py      # DataSourceAdapter interface
 │   │       ├── factory.py       # Adapter factory
-│   │       ├── openmeteo.py     # OpenMeteo adapter
-│   │       └── coincap.py       # CoinCap adapter
+│   │       └── openmeteo.py     # OpenMeteo adapter
 │   ├── pyproject.toml
 │   └── Dockerfile
 ├── frontend/
@@ -453,91 +539,3 @@ This implementation demonstrates **Architecture II: Normal App** which provides:
 | **Ops Complexity** | ⭐⭐ | Simple Docker setup |
 
 **Perfect for:** Medium-sized applications that need to scale, teams wanting parallel frontend/backend development, projects requiring frequent additions of new features/sources.
-
-## Problem Description
-
-- You will get URLs from 2 different public APIs which will deliver some public hourly and daily data in JSON formats of their own, where we are interested only in a few of parameters
-- You will create an API of your own, which would provide this data to clients, who can chose the source and returns a few parameters our clients are interested in
-- you will display them in one local page, without any special design requirement
-- you might want to provide clients with some aggregates of data, since some of the parameters are numbers
-- Details about APIs will be provided
-
-## Expected Results
-
-- use modern and efficient approaches, concepts and patterns
-- think about both: simplicity and scalability in more meanings than one
-- think about quality of the code and its expandability
-- think about efficiency, resources and costs
-
-## Preparations and Tools
-
-- have a local environment for running a single WEB page ready on your laptop
-- have access to internet
-- use any of the following languages: Golang, Java, Python
-- use any kind of tools you want to
-- you can prepare all scaffolding for the project you want to and build on top of it
-
----
-
-### **Key Drivers**
-
-- **Extensibility:** Easy to add new data sources/views.
-- **Scalability:** Handle more data sources, traffic, and clients.
-- **Maintainability:** Easy to debug, fix, and enhance.
-- **Performance:** Low-latency API reads.
-- **Ops Efficiency:** Simple to deploy, monitor; low infrastructure cost.
-
----
-
-### **Architectures**
-
-#### **I: Monolith**
-
-- **Concept:** Single FastAPI app does everything.
-- **Flow:** `Scheduler -> Data Fetcher -> PostgreSQL (JSONB) -> API/View Layer (Jinja2)`.
-- **Analysis:**
-  - **Pros:** **Very Fast** dev speed. **Very Simple** ops.
-  - **Cons:** **Low** scalability (single point of failure). **Low** extensibility (tight coupling).
-
-#### **II: Normal App**
-
-- **Concept:** Decoupled Backend API and Frontend SPA.
-- **Flow:**
-  - **Backend (FastAPI):** Handles data fetching/storage. Exposes a JSON API only.
-  - **Frontend (React):** Standalone SPA. Consumes the backend API. Built and served by Nginx.
-  - **Proxy (Nginx):** Serves static frontend files, routes `/api/*` to the backend.
-- **Analysis:**
-  - **Pros:** **High** dev speed (parallel work). **Good** scalability (frontend/backend scale independently). **High** extensibility (clean API contract).
-  - **Cons:** Slightly more setup than a monolith.
-
-#### **III: Microservices**
-
-- **Concept:** Decomposed into small, single-responsibility services.
-- **Flow:** `Ingestion Service(s) -> Central DB -> Backend API Service -> Frontend`.
-- **Analysis:**
-  - **Pros:** **Excellent** scalability & extensibility (scale/add services independently).
-  - **Cons:** **High** ops complexity (deployment, monitoring, service discovery). Slower initial dev.
-
-#### **IV: CQRS Pattern**
-
-- **Concept:** Separate read/write paths for max performance. Event-driven.
-- **Flow:**
-  - **Write:** `Command -> Message Bus -> Handler -> Write DB` (publishes `Event`).
-  - **Read:** `Event -> Projector -> Read DB` (creates pre-calculated views).
-  - **API:** Queries the optimized Read DB.
-- **Analysis:**
-  - **Pros:** **Exceptional** performance & scalability. **Exceptional** extensibility (add new views via projectors).
-  - **Cons:** **Very High** complexity (dev & ops). Requires deep distributed systems knowledge.
-
----
-
-### **Comparison Matrix**
-
-| Driver              | I: Monolith | II: Normal | III: Microservices | IV: CQRS          |
-| :------------------ | :---------- | :------------------------- | :----------------- | :---------------- |
-| **Dev Velocity**    | Very High   | High                       | Medium             | Low               |
-| **Scalability**     | Low         | Good                       | Excellent          | Exceptional       |
-| **Extensibility**   | Low         | High                       | Excellent          | Exceptional       |
-| **Maintainability** | Low         | High                       | Medium             | High (if skilled) |
-| **Performance**     | Medium      | Medium                     | High               | Exceptional       |
-| **Ops Complexity**  | Very Low    | Low                        | High               | Very High         |

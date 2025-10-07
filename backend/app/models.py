@@ -36,7 +36,7 @@ class Source(Base):
     type: Mapped[str] = mapped_column(String(20), nullable=False)  # 'hourly' or 'daily'
     description: Mapped[str | None] = mapped_column(Text)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    metadata: Mapped[dict | None] = mapped_column(JSONB, default=dict)  # Store location, coords, etc.
+    meta: Mapped[dict | None] = mapped_column("meta", JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), default=datetime.utcnow
     )
