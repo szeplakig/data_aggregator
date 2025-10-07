@@ -13,9 +13,7 @@ class OpenMeteoConfig(BaseConfigModel):
 
     base_url: str
     params: dict
-    # Optional mapping from API field names to internal field names
     field_mapping: dict[str, str] = {}
-    # Fields that should be treated as numeric for aggregation
     numeric_fields: list[str] = []
     description: str | None = None
     location: str | None = None
